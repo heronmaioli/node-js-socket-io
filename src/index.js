@@ -14,6 +14,7 @@ app.use(morgan("dev"));
 
 app.get("/", (req, res) => {
   res.send("recebido");
+  console.log("qualquer coisa");
 });
 
 io.on("connection", (socket) => {
