@@ -7,16 +7,21 @@ const cors = require("cors");
 const PORT = process.env.PORT || 3000;
 
 const app = express();
-app.use(cors());
+// app.use(cors());
 const httpServer = createServer(app);
 const io = new Server(httpServer);
 app.use(morgan("dev"));
+
+app.get("/", (req, res) => {
+  res.send("recebido");
+});
 
 io.on("connection", (socket) => {
   console.log(`Usuário conectado: ${socket.id}`);
 
   io.on("message", (message) => {
     socket.emit(message);
+    console.log(message);
   });
   socket.on("disconnect", () => console.log("Client disconnected"));
 });
