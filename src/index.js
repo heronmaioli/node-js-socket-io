@@ -7,7 +7,7 @@ const cors = require("cors");
 const PORT = process.env.PORT || 3000;
 
 const app = express();
-// app.use(cors());
+app.use(cors());
 const httpServer = createServer(app);
 const io = new Server(httpServer);
 app.use(morgan("dev"));
