@@ -1,31 +1,30 @@
 const express = require("express");
-const dotenv = require("dotenv");
+const morgan = require("morgan");
+const { createServer } = require("http");
+const { Server } = require("socket.io");
 const cors = require("cors");
-
-dotenv.config();
 const app = express();
+const httpServer = createServer(app);
+const io = new Server(httpServer);
 
 app.use(cors());
-
-app.use(express.json());
+app.use(morgan("dev"));
 app.use(express.urlencoded({ extended: false }));
 
 const PORT = process.env.PORT || 80;
 
-const server = app.listen(PORT, () => {
-  console.log(`Server is listening on port ${PORT}.`);
-});
-
-const io = require("socket.io")(server); //Bind socket.io to our express server.
-
 app.get("/", (req, res) => {
-  res.send("<h1>Welcome to NodeMCU Socket API</h1>");
+  res.send("recebido");
 });
 
 io.on("connection", (socket) => {
-  console.log("Someone has connected.");
+  console.log(`Usuário conectado: ${socket.id}`);
 
-  socket.on("message", (message) => {
+  io.on("message", (message) => {
+    socket.emit(message);
     console.log(message);
   });
+  socket.on("disconnect", () => console.log("Client disconnected"));
 });
+
+httpServer.listen(PORT);
