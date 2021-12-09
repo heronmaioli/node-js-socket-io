@@ -23,7 +23,7 @@ io.on("connection", (socket) => {
   console.log(`Usuário conectado: ${socket.id}`);
   socket.send(socket.id);
 
-  io.on("bootcheck", (message) => {
+  socket.on("bootcheck", (message) => {
     socket.send(message);
   });
 
