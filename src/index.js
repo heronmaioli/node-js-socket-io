@@ -21,7 +21,7 @@ app.get("/", (req, res) => {
 
 io.on("connection", (socket) => {
   console.log(`Usuário conectado: ${socket.id}`);
-  socket.send("testre");
+  socket.send(socket.id);
 
   io.on("message", (message) => {
     socket.emit(message);
