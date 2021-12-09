@@ -5,12 +5,18 @@ const { Server } = require("socket.io");
 const cors = require("cors");
 const app = express();
 const httpServer = createServer(app);
-const io = new Server(httpServer);
+const io = new Server(httpServer, {
+  allowEIO3: true,
+  allowRequest: (req, callback) => {
+    const isOriginValid = check(req);
+    callback(null, isOriginValid);
+  },
+  rememberUpgrade: true,
+});
 
 app.use(cors());
 app.use(morgan("dev"));
 app.use(express.urlencoded({ extended: false }));
-
 const PORT = process.env.PORT || 80;
 
 app.get("/", (req, res) => {
