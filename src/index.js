@@ -7,10 +7,6 @@ const app = express();
 const httpServer = createServer(app);
 const io = new Server(httpServer, {
   allowEIO3: true,
-  allowRequest: (req, callback) => {
-    const isOriginValid = check(req);
-    callback(null, isOriginValid);
-  },
   rememberUpgrade: true,
 });
 
