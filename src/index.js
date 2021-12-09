@@ -24,7 +24,7 @@ io.on("connection", (socket) => {
   socket.send(socket.id);
 
   io.on("bootcheck", (message) => {
-    console.log(`teste: ${message}`);
+    socket.send(message);
   });
 
   // io.on("desligar", (message) => {
