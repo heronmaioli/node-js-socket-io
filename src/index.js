@@ -23,6 +23,10 @@ io.on("connection", (socket) => {
   console.log(`Usuário conectado: ${socket.id}`);
   socket.send(socket.id);
 
+  setInterval(() => {
+    socket.send(socket.id);
+  }, 2000);
+
   io.on("message", (message) => {
     socket.emit(message);
     console.log(message);
