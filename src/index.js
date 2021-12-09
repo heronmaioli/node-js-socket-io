@@ -23,9 +23,13 @@ io.on("connection", (socket) => {
   console.log(`Usuário conectado: ${socket.id}`);
   socket.send(socket.id);
 
-  setInterval(() => {
-    socket.send(socket.id);
-  }, 8000);
+  io.on("bootcheck", (message) => {
+    console.log(message);
+  });
+
+  // io.on("desligar", (message) => {
+  //   io.send
+  // })
 
   io.on("message", (message) => {
     socket.emit(message);
@@ -33,5 +37,4 @@ io.on("connection", (socket) => {
   });
   socket.on("disconnect", () => console.log("Client disconnected"));
 });
-
-httpServer.listen(PORT);
+io.httpServer.listen(PORT);
