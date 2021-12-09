@@ -27,8 +27,8 @@ io.on("connection", (socket) => {
     socket.send(message);
   });
 
-  io.on("desligar", (...message) => {
-    console.log(message);
+  io.on("desligar", (message) => {
+    socket.send(message);
   });
 
   io.on("message", (message) => {
