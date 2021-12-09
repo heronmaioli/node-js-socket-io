@@ -5,7 +5,10 @@ const { Server } = require("socket.io");
 const cors = require("cors");
 const app = express();
 const httpServer = createServer(app);
-const io = new Server(httpServer);
+const io = new Server(httpServer, {
+  allowEIO3: true,
+  rememberUpgrade: true,
+});
 
 app.use(cors());
 app.use(morgan("dev"));
@@ -18,6 +21,7 @@ app.get("/", (req, res) => {
 
 io.on("connection", (socket) => {
   console.log(`Usuário conectado: ${socket.id}`);
+  socket.send("testre");
 
   io.on("message", (message) => {
     socket.emit(message);
