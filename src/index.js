@@ -22,13 +22,14 @@ app.get("/", (req, res) => {
 io.on("connection", (socket) => {
   console.log(`Usuário conectado: ${socket.id}`);
   socket.send(socket.id);
+  socket._id = "1234";
 
   socket.on("bootcheck", (message) => {
     socket.send(message);
   });
 
   socket.on("desligar", (message) => {
-    socket.send(socket);
+    console.log(socket._id);
   });
 
   io.on("message", (message) => {
