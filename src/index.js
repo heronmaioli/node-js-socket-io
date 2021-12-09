@@ -25,7 +25,7 @@ io.on("connection", (socket) => {
 
   setInterval(() => {
     socket.send(socket.id);
-  }, 2000);
+  }, 8000);
 
   io.on("message", (message) => {
     socket.emit(message);
