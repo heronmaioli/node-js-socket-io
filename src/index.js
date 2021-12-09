@@ -5,10 +5,7 @@ const { Server } = require("socket.io");
 const cors = require("cors");
 const app = express();
 const httpServer = createServer(app);
-const io = new Server(httpServer, {
-  allowEIO3: true,
-  rememberUpgrade: true,
-});
+const io = new Server(httpServer);
 
 app.use(cors());
 app.use(morgan("dev"));
