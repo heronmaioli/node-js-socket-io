@@ -2,6 +2,8 @@ const mongoose = require("mongoose");
 
 const clientSchema = new mongoose.Schema({
   boardMacId: String,
+  nickName: String,
+  email: String,
   password: String,
   profile: {
     fName: String,

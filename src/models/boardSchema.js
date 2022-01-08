@@ -3,7 +3,6 @@ const mongoose = require("mongoose");
 const boardSchema = new mongoose.Schema({
   boardMacId: String,
   clientId: String,
-  instanceWsId: String,
   stats: {
     highHour: String,
     lowHour: String,
