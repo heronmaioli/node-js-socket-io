@@ -160,7 +160,6 @@ io.on("connection", (socket) => {
     console.log(
       "_______________________________________________________________"
     );
-    sockets = fil;
   });
 
   socket.on("disconnect", (reason) => {
