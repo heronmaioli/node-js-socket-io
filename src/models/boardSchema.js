@@ -2,7 +2,6 @@ const mongoose = require("mongoose");
 
 const boardSchema = new mongoose.Schema({
   boardMacId: String,
-  clientId: String,
   stats: {
     highHour: String,
     lowHour: String,
@@ -10,10 +9,10 @@ const boardSchema = new mongoose.Schema({
     ventState: Boolean,
     inExaust: Boolean,
     outExaust: Boolean,
-  },
-  sensors: {
-    humidity: String,
-    temperature: String,
+    humidity: Number,
+    maxHumidity: Number,
+    temperature: Number,
+    maxTemperature: Number,
   },
   createdAt: Date,
 });

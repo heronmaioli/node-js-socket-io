@@ -25,13 +25,6 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 const PORT = process.env.PORT || 80;
 
-var sockets = [];
-
-app.post("/checkboardId", async (req, res) => {
-  const board = await boardSchema.findOne({ boardMacId: req.body.data });
-  board ? res.send(true) : res.send(false);
-});
-
 app.put("/registerUser", async (req, res) => {
   const { boardId, ...data } = req.body;
 
@@ -47,45 +40,12 @@ app.post("/getStatus", async (req, res) => {
   res.send(status?.stats);
 });
 
-io.on("connection", (socket) => {
-  console.log(`Usuário conectado: ${socket.id}`);
-
-  socket.on("bootcheck", async (boardID) => {
-    const { boardId } = boardID;
-    const verify = sockets.find((item) => item.boardId === boardId);
-    if (verify === undefined) {
-      sockets.push({
-        boardId: boardId,
-        sessionId: socket.id,
-      });
-    } else {
-      const findTarget = (valor) => {
-        if (valor.boardId != boardId) return valor;
-      };
-      const filtered = sockets.filter(findTarget);
-      sockets = filtered;
-      sockets.push({
-        boardId: boardId,
-        sessionId: socket.id,
-      });
-      console.log("placa já existe");
-    }
+io.use(async (socket, next) => {
+  if (socket.handshake.query.boardId != undefined) {
+    const boardId = socket.handshake.query.boardId;
     const board = await boardSchema.findOne({ boardMacId: boardId });
     if (board === null) {
-      const client = await clientSchema.create({
-        boardMacId: boardId,
-        password: "",
-        nickName: "",
-        email: "",
-        profile: {
-          fName: "",
-          lName: "",
-        },
-        createdAt: new Date(),
-      });
       await boardSchema.create({
-        boardMacId: boardId,
-        clientId: client._id,
         boardMacId: boardId,
         stats: {
           highHour: "05:00:00",
@@ -94,188 +54,156 @@ io.on("connection", (socket) => {
           ventState: false,
           inExaust: false,
           outExaust: false,
-        },
-        sensors: {
           humidity: 0,
+          maxHumidity: 0,
           temperature: 0,
+          maxTemperature: 0,
         },
+        sensors: {},
         createdAt: new Date(),
       });
-      console.log("New user created");
-      return;
+      console.log("New board registred!");
+    } else {
+      console.log("Board alreary registred!");
     }
+  }
+  next();
+});
+
+io.engine.generateId = (req) => {
+  if (req._query.boardId != undefined) {
+    return req._query.boardId;
+  } else {
+    return 1;
+  }
+};
+
+io.on("connection", (socket) => {
+  console.log(`Usuário conectado: ${socket.id}`);
+
+  socket.on("bootcheck", async (boardID) => {
+    const { boardId } = boardID;
+    const board = await boardSchema.findOne({ boardMacId: boardId });
     socket.emit("bootcheck", board.stats);
     console.log("Bootcheck done");
   });
 
   socket.on("sensorsUpdate", async (message) => {
-    let { boardId, ...doc } = message;
-    const board = await boardSchema.findOneAndUpdate(
+    const { boardId, ...doc } = message;
+    socket.broadcast.emit("sensorReads", doc);
+
+    await boardSchema.updateOne(
       { boardMacId: boardId },
-      { sensors: doc }
-    );
-    const findTarget = (client) => {
-      if (client.clientId === boardId) {
-        return client;
+      {
+        $set: {
+          "stats.temperature": doc.temperature,
+          "stats.humidity": doc.humidity,
+        },
       }
-    };
-    const clientTarget = sockets.filter(findTarget);
-    socket.to(clientTarget[0]?.sessionId).emit("sensorReads", doc);
-    console.log(message);
+    );
+
+    console.log(doc);
   });
 
   socket.on("newTimingSetup", async (message, boardID) => {
-    const findTarget = (board) => {
-      if (board.boardId === boardID) {
-        return board;
-      }
-    };
-    console.log(message);
-    const boardTarget = sockets.filter(findTarget);
-    socket.to(boardTarget[0]?.sessionId).emit("newTimingSetup", message);
+    socket.broadcast.emit("newTimingSetup", message);
 
-    const response = await boardSchema.findOne({ boardMacId: boardID });
-    const update = await boardSchema.updateOne(response, {
-      stats: {
-        ...response.stats,
-        highHour: message.highHour,
-        lowHour: message.lowHour,
-      },
-    });
+    await boardSchema.updateOne(
+      { boardMacId: boardID },
+      {
+        $set: {
+          "stats.highHour": message.highHour,
+          "stats.lowHour": message.lowHour,
+        },
+      }
+    );
+    console.log(message);
   });
 
-  socket.on("selfRegister", async (clientId) => {
-    const filtered = sockets.filter((valor) => {
-      return valor.clientId != clientId;
-    });
-    let fil = filtered;
+  socket.on("joinRoom", (roomID) => {
+    socket.join(roomID);
+  });
 
-    fil.push({
-      clientId: clientId,
-      sessionId: socket.id,
-    });
-    console.log("Client já existe: " + clientId);
-    console.log(fil);
-    console.log(sockets);
-    console.log(
-      "_______________________________________________________________"
-    );
+  socket.on("leaveRoom", (roomID) => {
+    socket.leave(roomID);
   });
 
   socket.on("disconnect", (reason) => {
-    console.log(`Desconectado: ${reason}`);
+    console.log(`Desconectado:  ${socket.id}/${reason}`);
   });
 
   socket.on("lightOn", async (boardID) => {
-    const findTarget = (board) => {
-      if (board.boardId === boardID) {
-        return board;
+    console.log(socket.rooms);
+    socket.broadcast.emit("setLightOn");
+    await boardSchema.updateOne(
+      { boardMacId: boardID },
+      {
+        $set: {
+          "stats.lightState": "ON",
+        },
       }
-    };
-    const boardTarget = sockets.filter(findTarget);
-    socket.to(boardTarget[0]?.sessionId).emit("setLightOn");
-
-    const response = await boardSchema.findOne({ boardMacId: boardID });
-    const update = await boardSchema.updateOne(response, {
-      stats: { ...response.stats, lightState: "ON" },
-    });
+    );
   });
 
   socket.on("lightOff", async (boardID) => {
-    const findTarget = (board) => {
-      if (board.boardId === boardID) {
-        return board;
+    socket.broadcast.emit("setLightOff");
+    await boardSchema.updateOne(
+      { boardMacId: boardID },
+      {
+        $set: {
+          "stats.lightState": "OFF",
+        },
       }
-    };
-
-    const boardTarget = sockets.filter(findTarget);
-    socket.to(boardTarget[0]?.sessionId).emit("setLightOff");
-    const response = await boardSchema.findOne({ boardMacId: boardID });
-    const update = await boardSchema.updateOne(response, {
-      stats: { ...response.stats, lightState: "OFF" },
-    });
+    );
   });
 
   socket.on("lightAuto", async (boardID) => {
-    const findTarget = (board) => {
-      if (board.boardId === boardID) {
-        return board;
+    socket.broadcast.emit("setLightAuto");
+    await boardSchema.updateOne(
+      { boardMacId: boardID },
+      {
+        $set: {
+          "stats.lightState": "AUTO",
+        },
       }
-    };
-    const boardTarget = sockets.filter(findTarget);
-    socket.to(boardTarget[0]?.sessionId).emit("setLightAuto");
-
-    const response = await boardSchema.findOne({ boardMacId: boardID });
-    const update = await boardSchema.updateOne(response, {
-      stats: { ...response.stats, lightState: "AUTO" },
-    });
+    );
   });
 
   socket.on("changeVentState", async (boardID, status) => {
-    const findTarget = (board) => {
-      if (board.boardId === boardID) {
-        return board;
+    socket.to(boardID).emit("changeVentState");
+    await boardSchema.updateOne(
+      { boardMacId: boardID },
+      {
+        $set: {
+          "stats.ventState": status,
+        },
       }
-    };
-    console.log(status);
-    const boardTarget = sockets.filter(findTarget);
-    socket.to(boardTarget[0]?.sessionId).emit("changeVentState");
-
-    const response = await boardSchema.findOne({ boardMacId: boardID });
-    const update = await boardSchema.updateOne(response, {
-      stats: { ...response.stats, ventState: status },
-    });
+    );
   });
 
   socket.on("changeInState", async (boardID, status) => {
-    const findTarget = (board) => {
-      if (board.boardId === boardID) {
-        return board;
-      }
-    };
-    console.log(status);
-    const boardTarget = sockets.filter(findTarget);
-    socket.to(boardTarget[0]?.sessionId).emit("changeInState");
+    socket.to(boardID).emit("changeInState");
 
-    const response = await boardSchema.findOne({ boardMacId: boardID });
-    const update = await boardSchema.updateOne(response, {
-      stats: { ...response.stats, inExaust: status },
-    });
+    await boardSchema.updateOne(
+      { boardMacId: boardID },
+      {
+        $set: {
+          "stats.inExaust": status,
+        },
+      }
+    );
   });
 
   socket.on("changeOutState", async (boardID, status) => {
-    const findTarget = (board) => {
-      if (board.boardId === boardID) {
-        return board;
+    socket.to(boardID).emit("changeOutState");
+    await boardSchema.updateOne(
+      { boardMacId: boardID },
+      {
+        $set: {
+          "stats.outExaust": status,
+        },
       }
-    };
-    console.log(status);
-    const boardTarget = sockets.filter(findTarget);
-    socket.to(boardTarget[0]?.sessionId).emit("changeOutState");
-
-    const response = await boardSchema.findOne({ boardMacId: boardID });
-    const update = await boardSchema.updateOne(response, {
-      stats: { ...response.stats, outExaust: status },
-    });
-  });
-
-  socket.on("teste", async (clientId) => {
-    const filtered = sockets.filter((valor) => {
-      return valor.clientId != clientId;
-    });
-    let fil = filtered;
-
-    fil.push({
-      clientId: clientId,
-      sessionId: socket.id,
-    });
-    console.log("Client já existe: " + clientId);
-    console.log(fil);
-    console.log(sockets);
-    console.log(
-      "_______________________________________________________________"
     );
-    sockets = fil;
   });
 });
 
