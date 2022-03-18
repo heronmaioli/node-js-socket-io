@@ -26,17 +26,33 @@ app.use(express.urlencoded({ extended: false }));
 const PORT = process.env.PORT || 80;
 
 app.put("/registerUser", async (req, res) => {
-  const { boardId, ...data } = req.body;
-
-  const board = await clientSchema.findOneAndUpdate(
-    { boardMacId: boardId },
-    data
-  );
-  board ? res.send(true) : res.send(false);
+  const data = req.body;
+  try {
+    const nickname = await clientSchema.findOne({ nickName: data.nickName });
+    const email = await clientSchema.findOne({ email: data.email });
+    if (nickname != undefined) {
+      return res.status(401).send("User already exists!");
+    } else if (email != undefined) {
+      return res.status(401).send("Email already used!");
+    } else {
+      const create = await clientSchema.create(data);
+      console.log(create._id);
+      return res.status(200).send(create._id);
+    }
+  } catch (err) {
+    console.log(err);
+    return res.status(400).send("User create failed!");
+  }
 });
 
-app.post("/getStatus", async (req, res) => {
-  const status = await boardSchema.findOne({ boardMacId: req.body.boardId });
+app.post("/login", async (req, res) => {
+  const data = req.body;
+
+  const response = await clientSchema.find({});
+});
+
+app.get("/getStatus", async (req, res) => {
+  const status = await boardSchema.findOne({ boardMacId: req.query.boardId });
   res.send(status?.stats);
 });
 
@@ -78,19 +94,20 @@ io.engine.generateId = (req) => {
   }
 };
 
-io.on("connection", (socket) => {
+io.on("connection", async (socket) => {
   console.log(`Usuário conectado: ${socket.id}`);
 
-  socket.on("bootcheck", async (boardID) => {
-    const { boardId } = boardID;
-    const board = await boardSchema.findOne({ boardMacId: boardId });
+  if (socket.handshake.query.boardId !== undefined) {
+    const board = await boardSchema.findOne({
+      boardMacId: socket.handshake.query.boardId,
+    });
     socket.emit("bootcheck", board.stats);
     console.log("Bootcheck done");
-  });
+  }
 
   socket.on("sensorsUpdate", async (message) => {
     const { boardId, ...doc } = message;
-    socket.broadcast.emit("sensorReads", doc);
+    io.to(boardId).emit("sensorReads", doc);
 
     await boardSchema.updateOne(
       { boardMacId: boardId },
@@ -102,11 +119,11 @@ io.on("connection", (socket) => {
       }
     );
 
-    console.log(doc);
+    console.log(message);
   });
 
   socket.on("newTimingSetup", async (message, boardID) => {
-    socket.broadcast.emit("newTimingSetup", message);
+    socket.to(boardID).emit("newTimingSetup", message);
 
     await boardSchema.updateOne(
       { boardMacId: boardID },
@@ -129,12 +146,14 @@ io.on("connection", (socket) => {
   });
 
   socket.on("disconnect", (reason) => {
+    socket.leave(socket.rooms[1]);
     console.log(`Desconectado:  ${socket.id}/${reason}`);
   });
 
   socket.on("lightOn", async (boardID) => {
     console.log(socket.rooms);
-    socket.broadcast.emit("setLightOn");
+    socket.to(boardID).emit("setLightOn");
+
     await boardSchema.updateOne(
       { boardMacId: boardID },
       {
@@ -146,7 +165,7 @@ io.on("connection", (socket) => {
   });
 
   socket.on("lightOff", async (boardID) => {
-    socket.broadcast.emit("setLightOff");
+    socket.to(boardID).emit("setLightOff");
     await boardSchema.updateOne(
       { boardMacId: boardID },
       {
@@ -158,7 +177,7 @@ io.on("connection", (socket) => {
   });
 
   socket.on("lightAuto", async (boardID) => {
-    socket.broadcast.emit("setLightAuto");
+    socket.to(boardID).emit("setLightAuto");
     await boardSchema.updateOne(
       { boardMacId: boardID },
       {
@@ -170,7 +189,7 @@ io.on("connection", (socket) => {
   });
 
   socket.on("changeVentState", async (boardID, status) => {
-    socket.to(boardID).emit("changeVentState");
+    socket.to(boardID).emit("changeVentState", status);
     await boardSchema.updateOne(
       { boardMacId: boardID },
       {
@@ -182,7 +201,7 @@ io.on("connection", (socket) => {
   });
 
   socket.on("changeInState", async (boardID, status) => {
-    socket.to(boardID).emit("changeInState");
+    socket.to(boardID).emit("changeInState", status);
 
     await boardSchema.updateOne(
       { boardMacId: boardID },
@@ -195,7 +214,7 @@ io.on("connection", (socket) => {
   });
 
   socket.on("changeOutState", async (boardID, status) => {
-    socket.to(boardID).emit("changeOutState");
+    socket.to(boardID).emit("changeOutState", status);
     await boardSchema.updateOne(
       { boardMacId: boardID },
       {
@@ -204,6 +223,11 @@ io.on("connection", (socket) => {
         },
       }
     );
+  });
+
+  socket.on("teste", () => {
+    console.log(socket.id);
+    console.log(io.sockets.adapter.rooms);
   });
 });
 
