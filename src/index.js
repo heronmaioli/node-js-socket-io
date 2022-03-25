@@ -7,6 +7,8 @@ const clientSchema = require("./models/clientSchema");
 const { createServer } = require("http");
 const { Server } = require("socket.io");
 const cors = require("cors");
+const { ServerResponse } = require("http");
+const { resourceUsage } = require("process");
 const app = express();
 const httpServer = createServer(app);
 const io = new Server(httpServer, {
@@ -47,13 +49,67 @@ app.put("/registerUser", async (req, res) => {
 
 app.post("/login", async (req, res) => {
   const data = req.body;
-
-  const response = await clientSchema.find({});
+  console.log(data);
+  try {
+    const response = await clientSchema.findOne({ nickName: data.nickName });
+    console.log(response);
+    if (!response) {
+      res.status(401).send("Invalid user or password");
+    } else if (response.password != data.password) {
+      res.status(401).send("Invalid password");
+    } else {
+      res.send(response);
+    }
+  } catch (err) {
+    res.status(401).send("deu erro");
+  }
 });
 
 app.get("/getStatus", async (req, res) => {
   const status = await boardSchema.findOne({ boardMacId: req.query.boardId });
   res.send(status?.stats);
+});
+
+app.get("/verify", async (req, res) => {
+  try {
+    const status = await clientSchema.findOne({ _id: req.query.user });
+    if (!status) throw "User not founded";
+    return res.send(status);
+  } catch (err) {
+    res.status(404).send(err);
+  }
+});
+
+app.put("/registerBoard", async (req, res) => {
+  const { userId, ...boardInfo } = req.body;
+  console.log(req.body);
+  try {
+    const checkBoard = await boardSchema.findOne({
+      boardMacId: boardInfo.boardId,
+    });
+    if (!checkBoard) throw "Board not registred!";
+
+    const client = await clientSchema.findOne({ _id: userId });
+    const verify = client.boards.find((board) => {
+      return board.boardId === boardInfo.boardId;
+    });
+    console.log(verify);
+    if (verify) throw "Board already registred!";
+
+    const teste = await clientSchema.updateOne(
+      { _id: userId },
+      {
+        $push: {
+          boards: [boardInfo],
+        },
+      }
+    );
+    console.log(teste);
+    res.send(boardInfo);
+  } catch (err) {
+    console.log(err);
+    return res.status(400).send(err);
+  }
 });
 
 io.use(async (socket, next) => {
@@ -108,7 +164,6 @@ io.on("connection", async (socket) => {
   socket.on("sensorsUpdate", async (message) => {
     const { boardId, ...doc } = message;
     io.to(boardId).emit("sensorReads", doc);
-
     await boardSchema.updateOne(
       { boardMacId: boardId },
       {
@@ -138,6 +193,7 @@ io.on("connection", async (socket) => {
   });
 
   socket.on("joinRoom", (roomID) => {
+    console.log("joinado");
     socket.join(roomID);
   });
 
