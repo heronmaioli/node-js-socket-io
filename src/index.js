@@ -193,12 +193,14 @@ io.on("connection", async (socket) => {
   });
 
   socket.on("joinRoom", (roomID) => {
-    console.log("joinado");
+    console.log(socket.rooms);
     socket.join(roomID);
+    console.log(socket.rooms);
   });
 
   socket.on("leaveRoom", (roomID) => {
     socket.leave(roomID);
+    console.log("Saiu:" + roomID);
   });
 
   socket.on("disconnect", (reason) => {
@@ -207,7 +209,7 @@ io.on("connection", async (socket) => {
   });
 
   socket.on("lightOn", async (boardID) => {
-    console.log(socket.rooms);
+    console.log("Ligh on: " + socket.id);
     socket.to(boardID).emit("setLightOn");
 
     await boardSchema.updateOne(
@@ -221,6 +223,7 @@ io.on("connection", async (socket) => {
   });
 
   socket.on("lightOff", async (boardID) => {
+    console.log("Ligh off: " + socket.id);
     socket.to(boardID).emit("setLightOff");
     await boardSchema.updateOne(
       { boardMacId: boardID },
@@ -233,6 +236,7 @@ io.on("connection", async (socket) => {
   });
 
   socket.on("lightAuto", async (boardID) => {
+    console.log("Ligh auto: " + socket.id);
     socket.to(boardID).emit("setLightAuto");
     await boardSchema.updateOne(
       { boardMacId: boardID },
@@ -245,6 +249,7 @@ io.on("connection", async (socket) => {
   });
 
   socket.on("changeVentState", async (boardID, status) => {
+    console.log("Vent: " + status + " -> " + socket.id);
     socket.to(boardID).emit("changeVentState", status);
     await boardSchema.updateOne(
       { boardMacId: boardID },
@@ -257,6 +262,7 @@ io.on("connection", async (socket) => {
   });
 
   socket.on("changeInState", async (boardID, status) => {
+    console.log("In: " + status + " -> " + socket.id);
     socket.to(boardID).emit("changeInState", status);
 
     await boardSchema.updateOne(
@@ -270,6 +276,7 @@ io.on("connection", async (socket) => {
   });
 
   socket.on("changeOutState", async (boardID, status) => {
+    console.log("Out: " + status + " -> " + socket.id);
     socket.to(boardID).emit("changeOutState", status);
     await boardSchema.updateOne(
       { boardMacId: boardID },
